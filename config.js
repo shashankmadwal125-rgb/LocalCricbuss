@@ -1,5 +1,4 @@
 // Firebase Configuration
-// Setup: README-SETUP.md पहा
 
 const firebaseConfig = {
     apiKey: "AIzaSyCPOFqcdTLMmlE5gmWx-f1YdZFhVSmZgbU",
@@ -14,16 +13,6 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
 
-db.ref("manualTest").set({
-  name: "Shashank",
-  status: "Working",
-  time: new Date().toString()
-})
-.then(() => {
-  console.log("SUCCESS");
-})
-.catch((error) => {
-  console.log("ERROR:", error);
-});
+// Make database global
+window.db = firebase.database();
