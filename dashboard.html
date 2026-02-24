@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard - LocalCricbuzz</title>
+    <link rel="stylesheet" href="../css/cricbuzz-style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                🏏 LocalCricbuzz
+            </div>
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="dashboard.html">Dashboard</a></li>
+                    <li><a href="my-matches.html">My Matches</a></li>
+                    <li><a href="my-players.html">My Players</a></li>
+                </ul>
+            </nav>
+            <div class="user-actions">
+                <span id="userName" style="color: white; margin-right: 1rem;"></span>
+                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Welcome Section -->
+        <div class="live-section">
+            <h2 class="section-title">👋 Welcome, <span id="userNameDisplay"></span>!</h2>
+            <p style="color: #666; margin-top: 0.5rem;">Team: <strong id="userTeamDisplay"></strong></p>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="stats-grid">
+            <div class="stat-box" onclick="window.location.href='my-matches.html'" style="cursor: pointer;">
+                <div class="stat-value" id="matchCount">-</div>
+                <div class="stat-label">My Matches</div>
+            </div>
+            <div class="stat-box" onclick="window.location.href='my-players.html'" style="cursor: pointer;">
+                <div class="stat-value" id="playerCount">-</div>
+                <div class="stat-label">My Players</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="winCount">-</div>
+                <div class="stat-label">Wins</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="lossCount">-</div>
+                <div class="stat-label">Losses</div>
+            </div>
+        </div>
+
+        <!-- My Live Matches -->
+        <div class="live-section">
+            <div class="section-header">
+                <h2 class="section-title">🔴 My Live Matches</h2>
+                <a href="my-matches.html" class="view-all">View All →</a>
+            </div>
+            <div id="myLiveMatches">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- My Upcoming Matches -->
+        <div class="live-section">
+            <div class="section-header">
+                <h2 class="section-title">Upcoming Matches</h2>
+            </div>
+            <div id="myUpcomingMatches">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="live-section">
+            <h3 style="margin-bottom: 1rem;">⚡ Quick Actions</h3>
+            <div style="display: grid; gap: 1rem;">
+                <a href="my-players.html" class="btn btn-primary" style="text-align: center; padding: 1rem;">
+                    👥 Manage My Players
+                </a>
+                <a href="../register-player-premium.html" class="btn btn-secondary" style="text-align: center; padding: 1rem;">
+                    ⭐ Add Premium Player (₹50)
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 LocalCricbuzz</p>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="../js/config.js"></script>
+    <script>
+        // Check Login
+        const userMobile = localStorage.getItem('userMobile');
+        const userName = localStorage.getItem('userName');
+        const userTeam = localStorage.getItem('userTeam');
+
+        if (!userMobile) {
+            alert('Please login first!');
+            window.location.href = 'login.html';
+        }
+
+        // Display User Info
+        document.getElementById('userName').textContent = userName;
+        document.getElementById('userNameDisplay').textContent = userName;
+        document.getElementById('userTeamDisplay').textContent = userTeam;
+
+        // Logout
+        function logout() {
+            if (confirm('Logout करायचे?')) {
+                localStorage.clear();
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Load My Matches
+        function loadMyMatches() {
+            db.ref('matches').once('value', (snapshot) => {
+                const liveContainer = document.getElementById('myLiveMatches');
+                const upcomingContainer = document.getElementById('myUpcomingMatches');
+                
+                let liveMatches = [];
+                let upcomingMatches = [];
+                let totalMatches = 0;
+                let wins = 0;
+                let losses = 0;
+
+                snapshot.forEach((childSnapshot) => {
+                    const match = childSnapshot.val();
+                    match.id = childSnapshot.key;
+
+                    // Check if this is user's match
+                    if (match.team1.name === userTeam || match.team2.name === userTeam) {
+                        totalMatches++;
+
+                        if (match.status === 'live') {
+                            liveMatches.push(match);
+                        } else if (match.status === 'upcoming') {
+                            upcomingMatches.push(match);
+                        } else if (match.status === 'completed') {
+                            // Count wins/losses
+                            const team1Won = match.team1.runs > match.team2.runs;
+                            const userIsTeam1 = match.team1.name === userTeam;
+                            
+                            if ((userIsTeam1 && team1Won) || (!userIsTeam1 && !team1Won)) {
+                                wins++;
+                            } else {
+                                losses++;
+                            }
+                        }
+                    }
+                });
+
+                // Update Stats
+                document.getElementById('matchCount').textContent = totalMatches;
+                document.getElementById('winCount').textContent = wins;
+                document.getElementById('lossCount').textContent = losses;
+
+                // Display Live Matches
+                if (liveMatches.length > 0) {
+                    liveContainer.innerHTML = liveMatches.map(m => createMatchCard(m, true)).join('');
+                } else {
+                    liveContainer.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">कोणतेही live matches नाहीत</p>';
+                }
+
+                // Display Upcoming Matches
+                if (upcomingMatches.length > 0) {
+                    upcomingContainer.innerHTML = upcomingMatches.map(m => createMatchCard(m, false)).join('');
+                } else {
+                    upcomingContainer.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">कोणतेही upcoming matches नाहीत</p>';
+                }
+            });
+        }
+
+        // Create Match Card
+        function createMatchCard(match, isLive) {
+            const canScore = isLive; // Can only score live matches
+            
+            return `
+                <div class="match-card">
+                    <div class="match-header">
+                        <div class="match-type">${match.tournament || 'Match'}</div>
+                        ${isLive ? '<span class="live-badge">● LIVE</span>' : '<span style="background: #ff9800; color: white; padding: 0.3rem 0.7rem; border-radius: 3px; font-size: 0.75rem;">Upcoming</span>'}
+                    </div>
+                    <div class="match-info">
+                        <div class="team-row">
+                            <span class="team-name">${match.team1.name}</span>
+                            <span class="team-score">${match.team1.score || '0/0'} (${match.team1.overs || '0.0'})</span>
+                        </div>
+                        <div class="team-row">
+                            <span class="team-name">${match.team2.name}</span>
+                            <span class="team-score">${match.team2.score || '0/0'} (${match.team2.overs || '0.0'})</span>
+                        </div>
+                    </div>
+                    ${canScore ? `
+                        <button onclick="startScoring('${match.id}')" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+                            ⚡ Start Scoring
+                        </button>
+                    ` : `
+                        <div class="match-status">${match.currentInfo || 'Match scheduled'}</div>
+                    `}
+                </div>
+            `;
+        }
+
+        // Start Scoring
+        function startScoring(matchId) {
+            window.location.href = `score-match.html?id=${matchId}`;
+        }
+
+        // Load Players Count
+        db.ref('players').orderByChild('teamName').equalTo(userTeam).once('value', (snapshot) => {
+            document.getElementById('playerCount').textContent = snapshot.numChildren();
+        });
+
+        // Initialize
+        loadMyMatches();
+    </script>
+</body>
+</html>
