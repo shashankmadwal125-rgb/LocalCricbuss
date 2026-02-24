@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Players - LocalCricbuzz</title>
+    <link rel="stylesheet" href="css/cricbuzz-style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                🏏 <a href="index.html" style="color: white; text-decoration: none;">LocalCricbuzz</a>
+            </div>
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="players.html">Players</a></li>
+                </ul>
+            </nav>
+            <div class="user-actions">
+                <a href="register-player-premium.html" class="btn btn-primary">⭐ Add Premium Player (₹50)</a>
+            </div>
+        </div>
+    </header>
+
+    <div style="background: linear-gradient(135deg, #09aa34, #078025); color: white; padding: 2rem 0; text-align: center;">
+        <div class="container">
+            <h1>⭐ Premium Players</h1>
+            <p>India's Local Cricket Stars!</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="filterPlayers('all')">All Players</button>
+            <button class="tab" onclick="filterPlayers('batsman')">Batsmen</button>
+            <button class="tab" onclick="filterPlayers('bowler')">Bowlers</button>
+            <button class="tab" onclick="filterPlayers('all-rounder')">All-Rounders</button>
+        </div>
+
+        <!-- Players Grid -->
+        <div id="playersGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+            <div class="loading">Loading players...</div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 LocalCricbuzz</p>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="js/config.js"></script>
+    <script>
+        let allPlayers = [];
+        let currentFilter = 'all';
+
+        // Load Players
+        db.ref('players').orderByChild('isPremium').equalTo(true).on('value', (snapshot) => {
+            allPlayers = [];
+            
+            if (!snapshot.exists()) {
+                document.getElementById('playersGrid').innerHTML = 
+                    '<div style="text-align: center; padding: 3rem; color: #666; grid-column: 1/-1;">अजून कोणी premium player नाही. तुम्ही पहिले व्हा!</div>';
+                return;
+            }
+
+            snapshot.forEach((childSnapshot) => {
+                const player = childSnapshot.val();
+                player.id = childSnapshot.key;
+                allPlayers.push(player);
+            });
+
+            displayPlayers();
+        });
+
+        // Filter Players
+        function filterPlayers(role) {
+            currentFilter = role;
+            
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            displayPlayers();
+        }
+
+        // Display Players
+        function displayPlayers() {
+            const container = document.getElementById('playersGrid');
+            
+            let filtered = currentFilter === 'all' ? 
+                allPlayers : 
+                allPlayers.filter(p => p.role === currentFilter);
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #666; grid-column: 1/-1;">No players found in this category</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(player => createPlayerCard(player)).join('');
+        }
+
+        // Create Player Card
+        function createPlayerCard(player) {
+            const photoUrl = player.photoURL || 'https://via.placeholder.com/200?text=No+Photo';
+            
+            return `
+                <div class="match-card" style="text-align: center;">
+                    <img src="${photoUrl}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 1rem;">
+                    
+                    <h3 style="margin: 0.5rem 0;">${player.name}</h3>
+                    
+                    <span class="premium-badge">⭐ PREMIUM</span>
+                    
+                    <div style="margin: 1rem 0; color: #666;">
+                        <p style="margin: 0.3rem 0;"><strong>Team:</strong> ${player.teamName}</p>
+                        <p style="margin: 0.3rem 0;"><strong>Role:</strong> ${player.role}</p>
+                        ${player.age ? `<p style="margin: 0.3rem 0;"><strong>Age:</strong> ${player.age}</p>` : ''}
+                        <p style="margin: 0.3rem 0;"><strong>Batting:</strong> ${player.battingStyle}</p>
+                        ${player.bowlingStyle !== 'none' ? `<p style="margin: 0.3rem 0;"><strong>Bowling:</strong> ${player.bowlingStyle}</p>` : ''}
+                    </div>
+
+                    ${player.bio ? `<p style="font-style: italic; color: #666; font-size: 0.9rem; margin: 1rem 0;">"${player.bio}"</p>` : ''}
+
+                    <div class="stats-grid" style="margin-top: 1rem;">
+                        <div class="stat-box">
+                            <div class="stat-value">${player.matchesPlayed || 0}</div>
+                            <div class="stat-label">Matches</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${player.totalRuns || 0}</div>
+                            <div class="stat-label">Runs</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${player.totalWickets || 0}</div>
+                            <div class="stat-label">Wickets</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Registration - LocalCricbuzz</title>
+    <link rel="stylesheet" href="css/cricbuzz-style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                🏏 <a href="index.html" style="color: white; text-decoration: none;">LocalCricbuzz</a>
+            </div>
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="tournaments.html">Tournaments</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Registration Form -->
+    <div class="container">
+        <div style="max-width: 600px; margin: 2rem auto;">
+            <!-- Header Card -->
+            <div class="reg-card">
+                <h1>🏆 Tournament Registration</h1>
+                <div class="price">₹1000</div>
+                <p>Register करा आणि India भर च्या tournaments मध्ये play करा!</p>
+            </div>
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <strong>📝 Registration Process:</strong><br>
+                1. Details भरा + ₹1000 pay करा<br>
+                2. तुम्हाला SMS वर CODE मिळेल<br>
+                3. Admin approve करेल<br>
+                4. तुम्ही login करून scoring करू शकाल!
+            </div>
+
+            <!-- Form -->
+            <div class="score-panel">
+                <form id="registrationForm">
+                    <div class="form-group">
+                        <label>Tournament निवडा *</label>
+                        <select id="tournamentSelect" class="form-control" required>
+                            <option value="">Loading tournaments...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Team नाव *</label>
+                        <input type="text" id="teamName" class="form-control" required placeholder="उदा. Mumbai Warriors">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Captain नाव *</label>
+                        <input type="text" id="captainName" class="form-control" required placeholder="उदा. Rahul Sharma">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mobile Number * (10 digits)</label>
+                        <input type="tel" id="mobile" class="form-control" required pattern="[0-9]{10}" placeholder="9876543210">
+                        <small style="color: #666;">हा number तुमचा login ID असेल!</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text" id="city" class="form-control" placeholder="उदा. Mumbai">
+                    </div>
+
+                    <button type="submit" class="submit-btn">
+                        ₹1000 Pay करून Register करा
+                    </button>
+                </form>
+            </div>
+
+            <div class="success-box" style="display: none; margin-top: 1rem;" id="successMessage">
+                <strong>✅ Registration Successful!</strong><br>
+                तुमचा verification code SMS वर पाठवला आहे.<br>
+                Admin approve केल्यावर तुम्ही login करू शकाल!
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2026 LocalCricbuzz</p>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="js/config.js"></script>
+    <script>
+        // Load Active Tournaments
+        db.ref('tournaments').orderByChild('status').equalTo('active').on('value', (snapshot) => {
+            const select = document.getElementById('tournamentSelect');
+            select.innerHTML = '<option value="">Select Tournament</option>';
+            
+            if (!snapshot.exists()) {
+                select.innerHTML = '<option value="">कोणतेही active tournaments नाहीत</option>';
+                return;
+            }
+            
+            snapshot.forEach((childSnapshot) => {
+                const tournament = childSnapshot.val();
+                const option = document.createElement('option');
+                option.value = childSnapshot.key;
+                option.textContent = `${tournament.name} - ${tournament.location} (₹${tournament.registrationFee})`;
+                select.appendChild(option);
+            });
+        });
+
+        // Generate Code
+        function generateCode() {
+            return Math.random().toString(36).substr(2, 6).toUpperCase();
+        }
+
+        // Form Submit
+        document.getElementById('registrationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const tournamentId = document.getElementById('tournamentSelect').value;
+            if (!tournamentId) {
+                alert('कृपया tournament निवडा!');
+                return;
+            }
+
+            const code = generateCode();
+            const mobile = document.getElementById('mobile').value;
+            
+            const regData = {
+                tournamentId: tournamentId,
+                teamName: document.getElementById('teamName').value,
+                captainName: document.getElementById('captainName').value,
+                mobile: mobile,
+                city: document.getElementById('city').value,
+                verificationCode: code,
+                status: 'pending',
+                paymentStatus: 'pending',
+                registrationDate: new Date().toLocaleDateString('en-IN'),
+                timestamp: Date.now()
+            };
+
+            // Payment Confirmation
+            const confirmed = confirm(
+                `Registration Details:\n\n` +
+                `Tournament: ${document.querySelector('#tournamentSelect option:checked').textContent}\n` +
+                `Team: ${regData.teamName}\n` +
+                `Captain: ${regData.captainName}\n` +
+                `Mobile: ${regData.mobile}\n` +
+                `Fee: ₹1000\n\n` +
+                `Proceed to payment?`
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const btn = document.querySelector('.submit-btn');
+                btn.disabled = true;
+                btn.textContent = 'Processing...';
+
+                // Save Registration
+                const newRegRef = db.ref('registrations').push();
+                await newRegRef.set(regData);
+
+                // Create User Account (for login)
+                const userRef = db.ref('users/' + mobile);
+                await userRef.set({
+                    mobile: mobile,
+                    name: regData.captainName,
+                    teamName: regData.teamName,
+                    registrationId: newRegRef.key,
+                    role: 'user',
+                    status: 'pending',
+                    createdAt: Date.now()
+                });
+
+                // Show Success
+                document.getElementById('registrationForm').style.display = 'none';
+                const successMsg = document.getElementById('successMessage');
+                successMsg.style.display = 'block';
+                successMsg.innerHTML = `
+                    <strong>✅ Registration Successful!</strong><br><br>
+                    <strong>Your Verification Code:</strong><br>
+                    <div style="background: white; padding: 1rem; border-radius: 4px; font-size: 2rem; font-weight: bold; text-align: center; margin: 1rem 0; color: #09aa34; letter-spacing: 5px;">
+                        ${code}
+                    </div>
+                    <strong>Important:</strong><br>
+                    • हा code SMS वर पण मिळेल<br>
+                    • Admin ला code सांगा approval साठी<br>
+                    • Approve झाल्यावर तुम्ही <strong>${mobile}</strong> ने login करू शकाल<br><br>
+                    <a href="user/login.html" class="btn btn-primary">Login Page</a>
+                `;
+
+                // Note: Production मध्ये SMS API integrate करा
+                console.log('SMS to send:', mobile, code);
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = '₹1000 Pay करून Register करा';
+            }
+        });
+    </script>
+</body>
+</html>
